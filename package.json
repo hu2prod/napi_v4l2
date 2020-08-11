@@ -1,0 +1,23 @@
+{
+  "name": "napi_v4l2",
+  "version": "1.0.0",
+  "description": "do not leak memory",
+  "main": "index.js",
+  "scripts": {
+    "install": "node-gyp configure build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hu2prod/napi_v4l2.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hu2prod/napi_v4l2/issues"
+  },
+  "homepage": "https://github.com/hu2prod/napi_v4l2#readme",
+  "dependencies": {
+    "node-gyp": "^7.0.0"
+  }
+}
