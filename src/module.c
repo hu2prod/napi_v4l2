@@ -1,13 +1,27 @@
 #include <node_api.h>
 
 #include "capture.c"
-#include "type.h"
+#include "runtime_native.c"
+#include "array_size_t.c"
+#include "hash.c"
+
+u32 free_context_counter = 0;
+void* free_context_fifo = NULL;
+void** alloc_context_hash = NULL;
+
+void free_capture_context_fifo_ensure_init() {
+  if (free_context_fifo == NULL) {
+    free_context_fifo = array_size_t_alloc(16);
+    alloc_context_hash = hash_size_t_alloc();
+  }
+}
+
+// non thread-safe
+struct Capture_context* capture_context_by_id(int id) {
+  return (struct Capture_context*)hash_size_t_get(alloc_context_hash, id);
+}
 
 
-// TODO multiple capture context
-struct Capture_context *ctx = NULL;
-
-u32 capture_ctx_idx = 0;
 
 napi_value start(napi_env env, napi_callback_info info) {
   napi_status status;
@@ -92,12 +106,19 @@ napi_value start(napi_env env, napi_callback_info info) {
   }
   
   ////////////////////////////////////////////////////////////////////////////////////////////////////
-  // Capture_context *ctx = (Capture_context*)malloc(sizeof(Capture_context));
-  if (ctx == NULL) {
+  struct Capture_context* ctx;
+  int ctx_idx;
+  if (array_size_t_length_get(free_context_fifo)) {
+    ctx = (struct Capture_context*)array_size_t_pop(free_context_fifo);
+    ctx_idx = ctx->ctx_idx;
+  } else {
+    // alloc
     ctx = (struct Capture_context*)malloc(sizeof(struct Capture_context));
+    ctx_idx = free_context_counter++;
+    ctx->ctx_idx = ctx_idx;
+    alloc_context_hash = hash_size_t_set(alloc_context_hash, ctx_idx, (size_t)ctx);
   }
   
-  ctx->ctx_idx = capture_ctx_idx++;
   ctx->size_x = size_x;
   ctx->size_y = size_y;
   ctx->fps    = fps;
@@ -169,13 +190,10 @@ napi_value stop(napi_env env, napi_callback_info info) {
   ////////////////////////////////////////////////////////////////////////////////////////////////////
   //    checks
   ////////////////////////////////////////////////////////////////////////////////////////////////////
-  if (ctx_idx != 0) {
-    napi_throw_error(env, NULL, "ctx_idx != 0");
-    return ret_dummy;
-  }
   
-  if (ctx == NULL) {
-    napi_throw_error(env, NULL, "ctx == NULL");
+  struct Capture_context* ctx = capture_context_by_id(ctx_idx);
+  if (!ctx) {
+    napi_throw_error(env, NULL, "Invalid ctx_idx");
     return ret_dummy;
   }
   
@@ -190,6 +208,7 @@ napi_value stop(napi_env env, napi_callback_info info) {
   }
   ////////////////////////////////////////////////////////////////////////////////////////////////////
   capture_stop(ctx);
+  free_context_fifo = array_size_t_push(free_context_fifo, (size_t)ctx);
   
   ////////////////////////////////////////////////////////////////////////////////////////////////////
   return ret_dummy;
@@ -242,13 +261,9 @@ napi_value frame_get(napi_env env, napi_callback_info info) {
   }
   
   ////////////////////////////////////////////////////////////////////////////////////////////////////
-  if (ctx_idx != 0) {
-    napi_throw_error(env, NULL, "ctx_idx != 0");
-    return ret_dummy;
-  }
-  
-  if (ctx == NULL) {
-    napi_throw_error(env, NULL, "ctx == NULL");
+  struct Capture_context* ctx = capture_context_by_id(ctx_idx);
+  if (!ctx) {
+    napi_throw_error(env, NULL, "Invalid ctx_idx");
     return ret_dummy;
   }
   
@@ -350,6 +365,9 @@ napi_value frame_get(napi_env env, napi_callback_info info) {
 napi_value Init(napi_env env, napi_value exports) {
   napi_status status;
   napi_value fn;
+  
+  __alloc_init();
+  free_capture_context_fifo_ensure_init();
   ////////////////////////////////////////////////////////////////////////////////////////////////////
   status = napi_create_function(env, NULL, 0, start, NULL, &fn);
   if (status != napi_ok) {
