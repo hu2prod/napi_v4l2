@@ -8,7 +8,7 @@
       ],
       "link_settings": {
         "libraries": [
-          "-lpng"
+          "-lv4l2"
         ]
       }
     }
