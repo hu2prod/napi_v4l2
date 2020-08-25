@@ -293,12 +293,13 @@ napi_value frame_get(napi_env env, napi_callback_info info) {
       return ret_dummy;
     }
     
+    u64 capture_frame_id = ctx->frame_id;
     // only in range of positive int32
     frame_id = ctx->frame_id & 0x1FFFFFFF;
     if (frame_id != last_frame_id) {
       memcpy(data_dst, (u8*)ctx->buffer, last_frame_size);
     }
-    if (ctx->capture_in_progress) {
+    if (ctx->capture_in_progress || capture_frame_id != ctx->frame_id) {
       // we copied possibly corrupted data, throw out and retry
       continue;
     }
