@@ -35,8 +35,9 @@ only usage example for now
         res = napi_png.png_encode_rgb(buffer, size_x, size_y, png_buffer, 0);
         dst_offset_start  = res[0]
         dst_offset_end    = res[1] + res[0] # res[1] is length
-        res_png_dst       = res[2]
-        fs.writeFileSync("test_encode.png", res_png_dst.slice(dst_offset_start, dst_offset_end));
+        # res_png_dst       = res[2] # this will leak memory if there was re-allocation in png_encode_rgb
+        png_buffer        = res[2]
+        fs.writeFileSync("test_encode.png", png_buffer.slice(dst_offset_start, dst_offset_end));
       }
     }, 1);
     
