@@ -121,6 +121,7 @@ napi_value start(napi_env env, napi_callback_info info) {
   
   ctx->size_x = size_x;
   ctx->size_y = size_y;
+  ctx->frame_size = 3*size_x*size_y;
   ctx->fps    = fps;
   ctx->fps_div= fps_div;
   ctx->buffer = (u8*)malloc(3*size_x*size_y); // BGR24 because hardcoded settings
@@ -171,8 +172,8 @@ napi_value stop(napi_env env, napi_callback_info info) {
     return ret_dummy;
   }
   
-  size_t argc = 6;
-  napi_value argv[6];
+  size_t argc = 1;
+  napi_value argv[1];
   status = napi_get_cb_info(env, info, &argc, argv, NULL, NULL);
   
   if (status != napi_ok) {
@@ -208,6 +209,8 @@ napi_value stop(napi_env env, napi_callback_info info) {
   }
   ////////////////////////////////////////////////////////////////////////////////////////////////////
   capture_stop(ctx);
+  free(ctx->video_dev_path);
+  ctx->video_dev_path = NULL;
   free_context_fifo = array_size_t_push(free_context_fifo, (size_t)ctx);
   
   ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -289,6 +292,8 @@ napi_value frame_get(napi_env env, napi_callback_info info) {
     
     last_frame_size = ctx->frame_size;
     if (data_dst_len < last_frame_size) {
+      printf("data_dst_len = %ld\n", data_dst_len);
+      printf("last_frame_size = %ld\n", last_frame_size);
       napi_throw_error(env, NULL, "data_dst_len < 3*ctx->size_x*ctx->size_y. Your buffer is too small");
       return ret_dummy;
     }
